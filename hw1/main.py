@@ -95,7 +95,8 @@ class SpeakerMap:
     speaker = self[speaker_name]
     word_count = speaker.word_counts[word]
     smoothing_value = 0.1
-    return float(word_count + smoothing_value) / (speaker.word_count + smoothing_value * self.unique_word_count)
+    possible_word_count = self.unique_word_count + 1 # Add one for a generic, unseen word
+    return float(word_count + smoothing_value) / (speaker.word_count + smoothing_value * possible_word_count)
 
   def probability_of_speakers_given_statement(self, statement):
     """ p(k | d) for all k.
