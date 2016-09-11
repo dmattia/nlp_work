@@ -3,57 +3,99 @@ from autograd import grad
 from collections import Counter, defaultdict
 from math import log, exp
 
+class CachedAttribute(object):    
+    '''Computes attribute value and caches it in the instance.
+    From the Python Cookbook (Denis Otkidach)
+    This decorator allows you to create a CachedAttribute which can be computed once and
+    accessed many times. Sort of like memoization.
+    
+    author: Denis Otkidach
+    source: http://code.activestate.com/recipes/276643-caching-and-aliasing-with-descriptors/
+    '''
+    def __init__(self, method, name=None):
+        self.method = method
+        self.name = name or method.__name__
+        self.__doc__ = method.__doc__
+    def __get__(self, inst, cls):
+        if inst is None:
+            return self
+        result = self.method(inst)
+        setattr(inst, self.name, result)
+        return result
+
 class SpeakerMap:
   """ A map of a speaker's name to a Speaker object.
       @param lines  The raw lines from an input file.
   """
   def __init__(self, statements):
     self._speaker_map = {}
-    self.statement_count = 0
     for statement in statements:
       if statement.speaker not in self._speaker_map:
-        self._speaker_map[statement.speaker] = Speaker()
-      self._speaker_map[statement.speaker].add_line(statement)
-      self.statement_count += 1
-    self.speakers = [speaker for speaker in self._speaker_map]
+        self[statement.speaker] = Speaker()
+      self[statement.speaker].add_line(statement)
 
-  """
-  @property
+  def __getitem__(self, key):
+    """ Overload the [] operator for retreiving a Speaker
+    """
+    return self._speaker_map[key]
+
+  def __setitem__(self, key, newValue):
+    """ Overload the [] operator for setting a Speaker
+    """
+    self._speaker_map[key] = newValue
+
+  @CachedAttribute
   def statement_count(self):
+    """ Returns the total number of statements made by all speakers
+    """
     total = 0
-    for speaker in self.speakers:
-      total += self._speaker_map[speaker].statement_count
+    for speaker in self._speaker_map:
+      total += self[speaker].statement_count
     return total
 
-  @property
+  @CachedAttribute
   def speakers(self):
-    return [speaker for speaker in self._speaker_map]
-  """
+    """ Returns a list of all speaker names
+    """
+    return [speaker_name for speaker_name in self._speaker_map]
+
+  @CachedAttribute
+  def words(self):
+    """ A list containing all words said by any speaker
+    """
+    words = []
+    for speaker_name in self.speakers:
+      words += self[speaker_name].words
+    return words
+
+  @CachedAttribute
+  def unique_word_count(self):
+    """ The total number of unique words said by any speaker
+    """
+    return len(set(self.words))
 
   def statement_count_for_speaker_with_name(self, speaker_name):
     """ c(k)
     """
-    return self._speaker_map[speaker_name].statement_count
+    return self[speaker_name].statement_count
 
   def word_count_for_word_and_speaker(self, word, speaker_name):
     """ c(k, w)
     """
-    return self._speaker_map[speaker_name].word_counts[word]
+    return self[speaker_name].word_counts[word]
 
   def probability_of_speaker_with_name(self, speaker_name):
     """ p(k)
     """
-    return float(self._speaker_map[speaker_name].statement_count) / speakerMap.statement_count
+    return float(self[speaker_name].statement_count) / self.statement_count
 
   def probability_of_word_given_speaker_with_name(self, word, speaker_name):
-    """ p(w | k)
+    """ p(w | k), using add-one smoothing
     """
-    speaker = self._speaker_map[speaker_name]
+    speaker = self[speaker_name]
     word_count = speaker.word_counts[word]
-    if word_count == 0:
-      # Word has never been said by speaker.  Apply smoothing by pretending they said it once.
-      word_count = 1
-    return float(word_count) / speaker.word_count
+    smoothing_value = 0.1
+    return float(word_count + smoothing_value) / (speaker.word_count + smoothing_value * self.unique_word_count)
 
   def probability_of_speakers_given_statement(self, statement):
     """ p(k | d) for all k.
@@ -62,18 +104,24 @@ class SpeakerMap:
         this statement came from the speaker.
     """
     def proportional_p_k_given_d(speaker_name):
-      """ Returns exp(log(p(k) + sum(log(p(w | k))))), a number proportional to p_k
+      """ Returns log(p(k)) + sum(log(p(w | k))).
+          This is a useful value for determining the proportional probability of a speaker.
+          The result does not include the final exponential call in order to preserve small values.
       """
       sum_total = log(self.probability_of_speaker_with_name(speaker_name))
       for word in statement.words:
         sum_total += log(self.probability_of_word_given_speaker_with_name(word, speaker_name))
-      return exp(sum_total)
-    proportional_p_k_given_d_values = [proportional_p_k_given_d(speaker_name) for speaker_name in self.speakers]
-    # Sum of all p_k_given_d must be 1, so we can sum the proportional values and divide
-    # each proportional value by that sum
-    dividing_factor = sum(proportional_p_k_given_d_values)
-    p_k_given_d = [proportional_value / dividing_factor for proportional_value in proportional_p_k_given_d_values]
-    return dict(zip(self.speakers, p_k_given_d))
+      return sum_total
+    proportional_probabilities = [proportional_p_k_given_d(speaker_name) for speaker_name in self.speakers]
+  
+    # Make these values larger in order to ensure e^x does not equate to 0 due to roundoff error.
+    max_value = max(proportional_probabilities)
+    proportional_probabilities = [max_value + p for p in proportional_probabilities]
+
+    # Now make these probabilities true probabilities by making them sum to 1
+    dividing_factor = sum(proportional_probabilities)
+    probabilities = [p / dividing_factor for p in proportional_probabilities]
+    return dict(zip(self.speakers, probabilities))
 
 class Speaker:
   """ A speaker that contains all statements made by the speaker.
@@ -89,20 +137,20 @@ class Speaker:
     self.statements.append(statement)
     self.words += statement.words
 
-  @property
+  @CachedAttribute
   def statement_count(self):
     """ The total number of statements this speaker has made. c(k)
     """
     return len(self.statements)
 
-  @property
+  @CachedAttribute
   def word_count(self):
     """ The total number of words spoken by this speaker, where duplicate
         words are counted separately ('I am what I am' would be 5 words, not 3).
     """
     return len(self.words)
 
-  @property
+  @CachedAttribute
   def word_counts(self):
     return Counter(self.words)
 
@@ -160,12 +208,19 @@ if __name__ == "__main__":
   with open("data/dev") as dev:
     first_line = dev.readline()
     probability_dict = speakerMap.probability_of_speakers_given_statement(Statement(first_line))
-    print(probability_dict)
+    for key in probability_dict:
+      print(key + ": " + str(probability_dict[key]))
 
   with open("data/test") as test:
     content = test.readlines()
-    for line in content:
+    def test_if_correct(line):
+      """ Takes in a document and returns if the naive bayes can correctly predict the speaker
+      """
       statement = Statement(line)
       probability_dict = speakerMap.probability_of_speakers_given_statement(statement)
-      max_key = max(probability_dict, key=probability_dict.get)
-      print("Actual: " + statement.speaker + " Predicted: " + max_key)
+      most_likely_speaker = min(probability_dict, key=probability_dict.get)
+      return most_likely_speaker == statement.speaker
+    correct = [test_if_correct(line) for line in content]
+    correct_count = correct.count(True)
+      
+    print(str(correct_count) + " correct out of " + str(len(content)))
