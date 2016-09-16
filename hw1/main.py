@@ -1,5 +1,3 @@
-import autograd.numpy as np
-from autograd import grad
 from collections import Counter, defaultdict
 from math import log, exp
 import random
@@ -331,6 +329,9 @@ def test_log_regression():
   for speaker in speakers:
     for word in words:
       print("λ(" + speaker + ", " + word + "): " + str(lambdaMap.model[speaker][word]))
+
+  print("\nP(k | d) for the first line of dev:")
+  print(lambdaMap.p_k_given_d(dev_statements[0]))
 
   print("\nAccuracy on test: " + str(lambdaMap.judge_accuracy(test=True)))
 
