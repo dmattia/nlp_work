@@ -2,6 +2,7 @@ import autograd.numpy as np
 from autograd import grad
 from collections import Counter, defaultdict
 from math import log, exp
+import random
 
 class CachedAttribute(object):    
     '''Computes attribute value and caches it in the instance.
@@ -49,8 +50,8 @@ class SpeakerMap:
     """ Returns the total number of statements made by all speakers
     """
     total = 0
-    for speaker in self._speaker_map:
-      total += self[speaker].statement_count
+    for speaker_name in self._speaker_map:
+      total += self[speaker_name].statement_count
     return total
 
   @CachedAttribute
@@ -155,6 +156,61 @@ class Speaker:
   def word_counts(self):
     return Counter(self.words)
 
+class LambdaMap:
+  def __init__(self, train_statements, test_statements):
+    self.statements = train_statements
+    self.test_statements = test_statements
+    self.test_length = len(self.test_statements)
+    self.model = {}
+    self.learning_rate = 0.01
+
+    self.speakers = set([statement.speaker for statement in self.statements])
+
+    for speaker in self.speakers:
+      self.model[speaker] = defaultdict(float)
+
+  def negative_log_prob(self):
+    total = 0
+    for test_statement in self.test_statements:
+      total += log(self.p_k_given_d(test_statement)[test_statement.speaker])
+    return -total
+
+  def judge_accuracy(self):
+    random.shuffle(self.test_statements)
+    correct = 0
+    for test_statement in self.test_statements:
+      if test_statement.speaker == self.predict_speaker(test_statement):
+        correct += 1
+    return float(correct) / self.test_length
+
+  def train(self):
+    self.learning_rate *= .95
+    random.shuffle(self.statements)
+    for statement in self.statements:
+      self.update_for_statement(statement)
+
+  def p_k_given_d(self, statement):
+    value_map = defaultdict(int)
+    for speaker in self.speakers:
+      total = self.model[speaker][""]
+      for word in statement.words:
+        total += self.model[speaker][word]
+      value_map[speaker] = total
+    value_map = {speaker: exp(value) for speaker, value in value_map.items()}
+    sum_value = sum(value_map.values())
+    return {speaker: value / sum_value for speaker, value in value_map.items()}
+
+  def update_for_statement(self, statement):
+    p_k_given_d_map = self.p_k_given_d(statement)
+    for word in (statement.words + [""]):
+      self.model[statement.speaker][word] += self.learning_rate
+      for speaker in self.speakers:
+        self.model[speaker][word] -= self.learning_rate * p_k_given_d_map[speaker]
+
+  def predict_speaker(self, statement):
+    value_map = self.p_k_given_d(statement)
+    return max(value_map, key=lambda x: value_map[x])
+
 class Statement:
   """ A single statement that contains a speaker's name
      and the words of that statement in a list.
@@ -168,7 +224,7 @@ class Statement:
     self.speaker = raw_words[0]
     self.words = raw_words[1:]
 
-if __name__ == "__main__":
+def test_bayes():
   with open("data/train") as train:
     content = train.readlines()
     statements = map(Statement, content)
@@ -225,3 +281,39 @@ if __name__ == "__main__":
     correct_count = correct.count(True)
       
     print(str(correct_count) + " correct out of " + str(len(content)))
+
+def test_log_regression():
+  with open("data/train") as train:
+    train_content = train.readlines()
+    train_statements = [Statement(line) for line in train_content]
+
+  with open("data/test") as test:
+    test_content = test.readlines()
+    test_length = len(test_content)
+    test_statements = [Statement(line) for line in test_content]
+
+  lambdaMap = LambdaMap(train_statements, test_statements)
+
+  for i in range(5):
+    lambdaMap.train()
+    print("Iteration number: " + str(i + 1))
+    print("Negative log probability: " + str(lambdaMap.negative_log_prob()))
+    print("Accuracy on test: " + str(lambdaMap.judge_accuracy()) + "\n")
+
+  speakers = ["trump", "clinton"]
+  words = ["country", "president"]
+
+  # Print lambda(k) for trump, clinton
+  print("λ(k) values:")
+  for speaker in speakers:
+    print("λ(" + speaker + "): " + str(lambdaMap.model[speaker][""]))
+
+  # Print lambda(k, w) values
+  print("\nλ(k, w) values:")
+  for speaker in speakers:
+    for word in words:
+      print("λ(" + speaker + ", " + word + "): " + str(lambdaMap.model[speaker][word]))
+
+if __name__ == "__main__":
+  #test_bayes()
+  test_log_regression()
