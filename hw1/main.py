@@ -157,8 +157,9 @@ class Speaker:
     return Counter(self.words)
 
 class LambdaMap:
-  def __init__(self, train_statements, test_statements):
+  def __init__(self, train_statements, dev_statements, test_statements):
     self.statements = train_statements
+    self.dev_statements = dev_statements
     self.test_statements = test_statements
     self.test_length = len(self.test_statements)
     self.model = {}
@@ -172,13 +173,14 @@ class LambdaMap:
   def negative_log_prob(self):
     total = 0
     for test_statement in self.test_statements:
-      total += log(self.p_k_given_d(test_statement)[test_statement.speaker])
-    return -total
+      total -= log(self.p_k_given_d(test_statement)[test_statement.speaker])
+    return total
 
-  def judge_accuracy(self):
-    random.shuffle(self.test_statements)
+  def judge_accuracy(self, test=False):
+    statements = self.test_statements if test else self.dev_statements
+    random.shuffle(statements)
     correct = 0
-    for test_statement in self.test_statements:
+    for test_statement in statements:
       if test_statement.speaker == self.predict_speaker(test_statement):
         correct += 1
     return float(correct) / self.test_length
@@ -225,6 +227,9 @@ class Statement:
     self.words = raw_words[1:]
 
 def test_bayes():
+  print("#######################")
+  print("# TESTING NAIVE BAYES #")
+  print("#######################")
   with open("data/train") as train:
     content = train.readlines()
     statements = map(Statement, content)
@@ -282,7 +287,16 @@ def test_bayes():
       
     print(str(correct_count) + " correct out of " + str(len(content)))
 
+  print("\nImplementation Choices:\n"\
+      + "I did add n smoothing, with n = 0.1.  This type of smoothing resulted in the largest accuracy on dev.\n"\
+      + "I also had to adjust the proportional probability values by a constant multiplicitive factor to avoid "\
+      + "underflow when taking the exponential\n"
+  )
+
 def test_log_regression():
+  print("#################################")
+  print("# TESTING LOGRITHMIC REGRESSION #")
+  print("#################################")
   with open("data/train") as train:
     train_content = train.readlines()
     train_statements = [Statement(line) for line in train_content]
@@ -292,13 +306,17 @@ def test_log_regression():
     test_length = len(test_content)
     test_statements = [Statement(line) for line in test_content]
 
-  lambdaMap = LambdaMap(train_statements, test_statements)
+  with open("data/dev") as dev:
+    dev_content = dev.readlines()
+    dev_statements = [Statement(line) for line in dev_content]
 
-  for i in range(5):
+  lambdaMap = LambdaMap(train_statements, dev_statements, test_statements)
+
+  for i in range(30):
     lambdaMap.train()
     print("Iteration number: " + str(i + 1))
-    print("Negative log probability: " + str(lambdaMap.negative_log_prob()))
-    print("Accuracy on test: " + str(lambdaMap.judge_accuracy()) + "\n")
+    print("Negative log likelihood: " + str(lambdaMap.negative_log_prob()))
+    print("Accuracy on dev: " + str(lambdaMap.judge_accuracy()) + "\n")
 
   speakers = ["trump", "clinton"]
   words = ["country", "president"]
@@ -314,6 +332,17 @@ def test_log_regression():
     for word in words:
       print("λ(" + speaker + ", " + word + "): " + str(lambdaMap.model[speaker][word]))
 
+  print("\nAccuracy on test: " + str(lambdaMap.judge_accuracy(test=True)))
+
+  print("\nImplementation Choices:\n"\
+      + "I randomly shuffled the training lines before each iteration, as well as each test set I tested on\n"\
+      + "I started with a learning rate of 0.1. This allowed for quick increases in accuracy initially, "\
+      + "but I decreased this value by 5% each iteration.  This made the steps smaller towards the end.\n"\
+      + "I chose 30 iterations because at this point, the learning rate is small enough that the model "\
+      + "should be hovering around its maximum. Note: .95^30 ~= 20% of the original learning rate.\n"\
+      + "for λ(k), I assumed there was a dummy word (the empty string in my case) that occurred once per document."
+  )
+
 if __name__ == "__main__":
-  #test_bayes()
+  test_bayes()
   test_log_regression()

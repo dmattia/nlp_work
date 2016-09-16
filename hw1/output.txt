@@ -1,0 +1,187 @@
+#######################
+# TESTING NAIVE BAYES #
+#######################
+c(k) values:
+trump spoke 637 statements
+clinton spoke 455 statements
+
+c(k, w) values:
+trump said the word country 161 times.
+trump said the word president 39 times.
+clinton said the word country 84 times.
+clinton said the word president 182 times.
+
+p(k) values:
+P(trump): 0.20183776932826364
+P(clinton): 0.14416983523447402
+
+p(w | k) values:
+P(country|trump): 0.004146301915637812
+P(president|trump): 0.0010063339844906174
+P(country|clinton): 0.0015826447291908564
+P(president|clinton): 0.0034268680759293097
+
+p(k | d) values:
+trump: 0.058507308744626126
+o'malley: 0.05910086665662608
+christie: 0.05817548546908337
+rubio: 0.05745483478687284
+paul: 0.05781700973342413
+huckabee: 0.0585940967322964
+kasich: 0.058514472426770714
+fiorina: 0.05887884594717273
+bush: 0.05751921195702798
+cruz: 0.05817814154063527
+chafee: 0.059970993054740906
+perry: 0.06558603197053225
+carson: 0.05860566028333848
+sanders: 0.05867792306489982
+webb: 0.05849133424089209
+clinton: 0.0577352477697702
+walker: 0.05819253562129054
+253 correct out of 400
+
+Implementation Choices:
+I did add n smoothing, with n = 0.1.  This type of smoothing resulted in the largest accuracy on dev.
+I also had to adjust the proportional probability values by a constant multiplicitive factor to avoid underflow when taking the exponential
+
+#################################
+# TESTING LOGRITHMIC REGRESSION #
+#################################
+Iteration number: 1
+Negative log likelihood: 1057.3341216675885
+Accuracy on dev: 0.31
+
+Iteration number: 2
+Negative log likelihood: 825.5373766875797
+Accuracy on dev: 0.43
+
+Iteration number: 3
+Negative log likelihood: 669.4842612916555
+Accuracy on dev: 0.4625
+
+Iteration number: 4
+Negative log likelihood: 647.6073013121734
+Accuracy on dev: 0.48
+
+Iteration number: 5
+Negative log likelihood: 616.9034107715255
+Accuracy on dev: 0.49
+
+Iteration number: 6
+Negative log likelihood: 635.9528767521258
+Accuracy on dev: 0.4825
+
+Iteration number: 7
+Negative log likelihood: 620.2823352122812
+Accuracy on dev: 0.495
+
+Iteration number: 8
+Negative log likelihood: 599.3127776902427
+Accuracy on dev: 0.5125
+
+Iteration number: 9
+Negative log likelihood: 611.8930226462003
+Accuracy on dev: 0.5025
+
+Iteration number: 10
+Negative log likelihood: 611.2165100306565
+Accuracy on dev: 0.5125
+
+Iteration number: 11
+Negative log likelihood: 599.4096179961509
+Accuracy on dev: 0.525
+
+Iteration number: 12
+Negative log likelihood: 611.0975846294322
+Accuracy on dev: 0.5025
+
+Iteration number: 13
+Negative log likelihood: 606.2839319956277
+Accuracy on dev: 0.5275
+
+Iteration number: 14
+Negative log likelihood: 645.4384479315071
+Accuracy on dev: 0.5
+
+Iteration number: 15
+Negative log likelihood: 609.8661055847987
+Accuracy on dev: 0.5075
+
+Iteration number: 16
+Negative log likelihood: 606.567769201057
+Accuracy on dev: 0.515
+
+Iteration number: 17
+Negative log likelihood: 613.7229280002744
+Accuracy on dev: 0.5275
+
+Iteration number: 18
+Negative log likelihood: 600.8776380356892
+Accuracy on dev: 0.53
+
+Iteration number: 19
+Negative log likelihood: 611.7996777428373
+Accuracy on dev: 0.5175
+
+Iteration number: 20
+Negative log likelihood: 615.9076646521214
+Accuracy on dev: 0.5125
+
+Iteration number: 21
+Negative log likelihood: 606.0560406324578
+Accuracy on dev: 0.525
+
+Iteration number: 22
+Negative log likelihood: 605.551077052713
+Accuracy on dev: 0.525
+
+Iteration number: 23
+Negative log likelihood: 613.5084867007711
+Accuracy on dev: 0.5275
+
+Iteration number: 24
+Negative log likelihood: 619.4294614938468
+Accuracy on dev: 0.52
+
+Iteration number: 25
+Negative log likelihood: 617.121743792241
+Accuracy on dev: 0.5225
+
+Iteration number: 26
+Negative log likelihood: 612.9158824506983
+Accuracy on dev: 0.52
+
+Iteration number: 27
+Negative log likelihood: 614.1808206957442
+Accuracy on dev: 0.5275
+
+Iteration number: 28
+Negative log likelihood: 614.6519222114491
+Accuracy on dev: 0.53
+
+Iteration number: 29
+Negative log likelihood: 612.2508238750969
+Accuracy on dev: 0.53
+
+Iteration number: 30
+Negative log likelihood: 610.2719842625125
+Accuracy on dev: 0.5275
+
+λ(k) values:
+λ(trump): 1.8071413577041227
+λ(clinton): 0.8651310356747417
+
+λ(k, w) values:
+λ(trump, country): 0.5350797800886148
+λ(trump, president): -0.38844758921285916
+λ(clinton, country): -0.24253115454349128
+λ(clinton, president): 0.5798208540804684
+
+Accuracy on test: 0.565
+
+Implementation Choices:
+I randomly shuffled the training lines before each iteration, as well as each test set I tested on
+I started with a learning rate of 0.1. This allowed for quick increases in accuracy initially, but I decreased this value by 5% each iteration.  This made the steps smaller towards the end.
+I chose 30 iterations because at this point, the learning rate is small enough that the model should be hovering around its maximum. Note: .95^30 ~= 20% of the original learning rate.
+for λ(k), I assumed there was a dummy word (the empty string in my case) that occurred once per document.
