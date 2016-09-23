@@ -1,6 +1,5 @@
 from collections import Counter, defaultdict
 from math import log, exp
-import nltk
 import random
 
 class CachedAttribute(object):    
@@ -60,13 +59,6 @@ class SpeakerMap:
     return [speaker_name for speaker_name in self._speaker_map]
 
   @CachedAttribute
-  def bigrams(self):
-    bigrams = []
-    for speaker_name in self.speakers:
-      bigrams += self[speaker_name].bigrams
-    return bigrams
-
-  @CachedAttribute
   def words(self):
     """ A list containing all words said by any speaker
     """
@@ -80,10 +72,6 @@ class SpeakerMap:
     """ The total number of unique words said by any speaker
     """
     return len(set(self.words))
-
-  @CachedAttribute
-  def unique_bigram_count(self):
-    return len(set(self.bigrams))
 
   def statement_count_for_speaker_with_name(self, speaker_name):
     """ c(k)
@@ -109,66 +97,6 @@ class SpeakerMap:
     possible_word_count = self.unique_word_count + 1 # Add one for a generic, unseen word
     return float(word_count + smoothing_value) / (speaker.word_count + smoothing_value * possible_word_count)
 
-  def probability_of_bigram_given_speaker_with_name(self, bigram, speaker_name):
-    """ p(bigram | k), using add-one smoothing
-    """
-    speaker = self[speaker_name]
-    bigram_count = speaker.bigram_counts[bigram]
-    smoothing_value = 0.1
-    possible_bigram_count = self.unique_bigram_count + 1 # Add one for a generic, unseen bigram
-    return float(bigram_count + smoothing_value) / (speaker.bigram_count + smoothing_value * possible_bigram_count)
-
-  def pos_probability_of_word_given_speaker_with_name(self, word, speaker_name):
-    """ p(pos | k), using add-one smoothing
-    """
-    speaker = self[speaker_name]
-    word_count = speaker.pos_counts[nltk.pos_tag([word])[0][1]]
-    smoothing_value = 0.1
-    possible_word_count = self.unique_word_count + 1 # Add one for a generic, unseen word
-    return float(word_count + smoothing_value) / (speaker.word_count + smoothing_value * possible_word_count)
-
-  def bigram_prob_of_speakers_given_statement(self, statement):
-    def proportional_p_b_given_d(speaker_name):
-      """
-      total = self.probability_of_speaker_with_name(speaker_name)
-      for bigram in statement.bigrams:
-        total *= self.probability_of_bigram_given_speaker_with_name(bigram, speaker_name)
-      return total
-      """
-      sum_total = log(self.probability_of_speaker_with_name(speaker_name))
-      for bigram in statement.bigrams:
-        sum_total += log(self.probability_of_bigram_given_speaker_with_name(bigram, speaker_name))
-      return sum_total
-      
-    proportional_probabilities = [proportional_p_b_given_d(speaker_name) for speaker_name in self.speakers]
-
-    # Make these values larger in order to ensure e^x does not equate to 0 due to roundoff error.
-    max_value = max(proportional_probabilities)
-    proportional_probabilities = [p - max_value for p in proportional_probabilities]
-    proportional_probabilities = [exp(p) for p in proportional_probabilities]
-
-    # Now make these probabilities true probabilities by making them sum to 1
-    dividing_factor = sum(proportional_probabilities)
-    probabilities = [p / dividing_factor for p in proportional_probabilities]
-    return dict(zip(self.speakers, probabilities))
-
-  def pos_probability_of_speakers_given_statement(self, statement):
-    def proportional_p_k_given_d(speaker_name):
-      sum_total = log(self.probability_of_speaker_with_name(speaker_name))
-      for word in statement.words:
-        sum_total += log(self.pos_probability_of_word_given_speaker_with_name(word, speaker_name))
-      return sum_total
-    proportional_probabilities = [proportional_p_k_given_d(speaker_name) for speaker_name in self.speakers]
-
-    # Make these values larger in order to ensure e^x does not equate to 0 due to roundoff error.
-    max_value = max(proportional_probabilities)
-    proportional_probabilities = [exp(p - max_value) for p in proportional_probabilities]
-
-    # Now make these probabilities true probabilities by making them sum to 1
-    dividing_factor = sum(proportional_probabilities)
-    probabilities = [p / dividing_factor for p in proportional_probabilities]
-    return dict(zip(self.speakers, probabilities))
-
   def probability_of_speakers_given_statement(self, statement):
     """ p(k | d) for all k.
         Takes in a statement and returns a dictionary containing all speakers as keys,
@@ -188,7 +116,7 @@ class SpeakerMap:
   
     # Make these values larger in order to ensure e^x does not equate to 0 due to roundoff error.
     max_value = max(proportional_probabilities)
-    proportional_probabilities = [exp(p - max_value) for p in proportional_probabilities]
+    proportional_probabilities = [max_value + p for p in proportional_probabilities]
 
     # Now make these probabilities true probabilities by making them sum to 1
     dividing_factor = sum(proportional_probabilities)
@@ -201,8 +129,6 @@ class Speaker:
   def __init__(self):
     self.statements = []
     self.words = []
-    self.bigrams = []
-    self.parts_of_speech = []
 
   def add_line(self, statement):
     """ Adds a spoken line to this speaker's history.
@@ -210,8 +136,6 @@ class Speaker:
     """
     self.statements.append(statement)
     self.words += statement.words
-    self.bigrams += statement.bigrams
-    self.parts_of_speech += statement.parts_of_speech
 
   @CachedAttribute
   def statement_count(self):
@@ -227,20 +151,8 @@ class Speaker:
     return len(self.words)
 
   @CachedAttribute
-  def bigram_count(self):
-    return len(self.bigrams)
-
-  @CachedAttribute
   def word_counts(self):
     return Counter(self.words)
-
-  @CachedAttribute
-  def bigram_counts(self):
-    return Counter(self.bigrams)
-
-  @CachedAttribute
-  def pos_counts(self):
-    return Counter(self.parts_of_speech)
 
 class LambdaMap:
   def __init__(self, train_statements, dev_statements, test_statements):
@@ -312,14 +224,6 @@ class Statement:
     self.speaker = raw_words[0]
     self.words = raw_words[1:]
 
-    # Find all bigrams
-    self.bigrams = []
-    for i in range(len(self.words) - 1):
-      self.bigrams += self.words[i] + " " + self.words[i+1]
-
-    self.parts_of_speech = nltk.pos_tag(self.words)
-    self.parts_of_speech = [tup[1] for tup in self.parts_of_speech]
-
 def test_bayes():
   print("#######################")
   print("# TESTING NAIVE BAYES #")
@@ -369,56 +273,17 @@ def test_bayes():
 
   with open("data/test") as test:
     content = test.readlines()
-
     def test_if_correct(line):
       """ Takes in a document and returns if the naive bayes can correctly predict the speaker
       """
       statement = Statement(line)
-      unigram_probability_dict = speakerMap.probability_of_speakers_given_statement(statement)
-      most_likely_speaker = max(unigram_probability_dict, key=unigram_probability_dict.get)
+      probability_dict = speakerMap.probability_of_speakers_given_statement(statement)
+      most_likely_speaker = min(probability_dict, key=probability_dict.get)
       return most_likely_speaker == statement.speaker
-
-    def test_if_bigram_correct(line):
-      statement = Statement(line)
-      bigram_probability_dict = speakerMap.bigram_prob_of_speakers_given_statement(statement)
-      most_likely_speaker = max(bigram_probability_dict, key=bigram_probability_dict.get)
-      return most_likely_speaker == statement.speaker
-
-    def test_if_pos_correct(line):
-      """ Takes in a document and returns if the naive bayes can correctly predict the speaker
-      """
-      statement = Statement(line)
-      pos_probability_dict = speakerMap.pos_probability_of_speakers_given_statement(statement)
-      most_likely_speaker = max(pos_probability_dict, key=pos_probability_dict.get)
-      return most_likely_speaker == statement.speaker
-
-    def test_if_average_correct(line):
-      statement = Statement(line)
-      unigram_dict = speakerMap.probability_of_speakers_given_statement(statement)
-      bigram_dict = speakerMap.bigram_prob_of_speakers_given_statement(statement)
-      pos_dict = speakerMap.pos_probability_of_speakers_given_statement(statement)
-      average_dict = {}
-      for speaker in speakerMap.speakers:
-        average_dict[speaker] = (unigram_dict[speaker] + bigram_dict[speaker] + pos_dict[speaker]) / 3
-      most_likely_speaker = max(average_dict, key=average_dict.get)
-      return most_likely_speaker == statement.speaker
-
-    print("\nFinal tests:")
     correct = [test_if_correct(line) for line in content]
     correct_count = correct.count(True)
-    print(str(correct_count) + " correct out of " + str(len(content)) + " using unigrams")
-
-    bigram_correct = [test_if_bigram_correct(line) for line in content]
-    bigram_correct_count = bigram_correct.count(True)
-    print(str(bigram_correct_count) + " correct out of " + str(len(content)) + " using bigrams")
-
-    pos_correct = [test_if_pos_correct(line) for line in content]
-    pos_correct_count = pos_correct.count(True)
-    print(str(pos_correct_count) + " correct out of " + str(len(content)) + " using parts of speech")
-
-    avg_correct = [test_if_average_correct(line) for line in content]
-    avg_correct_count = avg_correct.count(True)
-    print(str(avg_correct_count) + " correct out of " + str(len(content)) + " using all of these factors")
+      
+    print(str(correct_count) + " correct out of " + str(len(content)))
 
   print("\nImplementation Choices:\n"\
       + "I did add n smoothing, with n = 0.1.  This type of smoothing resulted in the largest accuracy on dev.\n"\
