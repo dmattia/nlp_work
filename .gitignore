@@ -6,3 +6,5 @@ lib
 .DS_Store
 
 *.sw[op]
+
+*.pyc

@@ -131,9 +131,7 @@ if __name__ == "__main__":
     m.train(args.train)
     m.start()
 
-    """
     root = tk.Tk()
     app = Application(m, master=root)
     app.mainloop()
     root.destroy()
-    """

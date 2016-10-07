@@ -22,51 +22,82 @@ class CachedAttribute(object):
 
 class NGramModel(object):
   def __init__(self, n):
-    self.ngrams = []
+    self.ngrams = [['']]
     self.n = n
     self.chars = 'qwertyuiopasdfghjklzxcvbnm,. '
 
   def train(self, filename):
-    for line in open(filename):
-      characters = [character for character in line if character in self.chars]
-      for i in range(len(characters) - self.n):
-        ngram = ""
-        for j in range(self.n):
-          ngram += characters[i + j]
-        print(ngram)
-        self.ngrams += ngram
+    for gram_size in range(1, self.n+1):
+      print("Finding grams of size: " + str(gram_size))
+      igrams = []
+      for line in open(filename):
+        characters = [character for character in line if character in self.chars]
+        for i in range(len(characters) - gram_size):
+          ngram = ""
+          for j in range(gram_size):
+            ngram += characters[i + j]
+          igrams.append(ngram)
+      self.ngrams.append(igrams)
 
   def start(self):
-    pass
+    self.history = ''
 
-  def read(self, gram):
-    pass
+  def read(self, w):
+    print("'" + w + "' was pressed")
+    self.history += w
 
-  @CachedAttribute
-  def counts(self):
-    return Counter(self.ngrams)
+  def c_udot(self, u):
+    # find c(u.)
+    count = 0
+    for gram in self.ngrams[len(u)+1]:
+      if gram[:-1] == u:
+        count += 1
+    return count
 
-  @CachedAttribute
-  def count(self):
-    return len(set(self.ngrams))
+  def c_uw(self, uw):
+    # find c(u.)
+    count = 0
+    for gram in self.ngrams[len(uw)]:
+      if gram == uw:
+        count += 1
+    return count
 
   def lambda_func(self, u):
     # find c(u.) and store in var @count
     count = 0
     possible_next_chars = set()
-    for gram in self.ngrams:
+    for gram in self.ngrams[len(u)+1]:
       if gram[:-1] == u:
         count += 1
-        possible_next_chars += gram[-1]
+        possible_next_chars.add(gram[-1])
 
     return count / (count + len(possible_next_chars))
 
-  def prob(self, gram):
-    if self.count == 0:
-      return 0
-    sigma = self.count / self.count + 1
-    factor = 0.1
-    return (self.counts[gram] + sigma) / (len(self.ngrams) + factor * sigma)
+  def prob(self, w):
+    """ Returns the probability of the next character being w given self.history
+    """
+    print(self.history)
+    start_of_gram = self.history[-(self.n-1):]
+    print("Finding probability of " + w + " given the start of a gram: " + start_of_gram)
+    return self.prob_of_gram(start_of_gram + w)
+
+  def prob_of_gram(self, gram):
+    """ Returns the probability of the next character being gram[-1] given gram[:-1]
+    """
+    if len(gram) == 1:
+      return Counter(self.ngrams[1])[gram] / len(self.ngrams[1])
+    u = gram[:-1]
+    w = gram[-1]
+    lambda_u = self.lambda_func(u)
+    c_uw = self.c_uw(gram)
+    c_udot = self.c_udot(u)
+    return lambda_u * c_uw / c_udot + (1 - lambda_u) * self.prob_of_gram(gram[1:])
 
   def probs(self):
-    return {gram: self.prob(gram) for gram in self.ngrams}
+    #return {gram: self.prob(gram) for gram in self.ngrams[self.n]}
+    d = {}
+    #for gram in self.ngrams[self.n]:
+    for w in self.chars:
+      d[w] = self.prob(w)
+      print("Probability of " + w + " is " + str(d[w])) 
+    return d
