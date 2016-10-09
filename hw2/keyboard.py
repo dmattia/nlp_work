@@ -127,7 +127,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ##### Replace this line with an instantiation of your model #####
-    m = NGramModel(5)
+    m = NGramModel(3)
     m.train(args.train)
     m.start()
 
