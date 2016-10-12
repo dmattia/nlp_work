@@ -2,24 +2,24 @@ from collections import Counter
 import math
 
 class CachedAttribute(object):
-    '''Computes attribute value and caches it in the instance.
-    From the Python Cookbook (Denis Otkidach)
-    This decorator allows you to create a CachedAttribute which can be computed once and
-    accessed many times. Sort of like memoization.
-    
-    author: Denis Otkidach
-    source: http://code.activestate.com/recipes/276643-caching-and-aliasing-with-descriptors/
-    '''
-    def __init__(self, method, name=None):
-        self.method = method
-        self.name = name or method.__name__
-        self.__doc__ = method.__doc__
-    def __get__(self, inst, cls):
-        if inst is None:
-            return self
-        result = self.method(inst)
-        setattr(inst, self.name, result)
-        return result
+  '''Computes attribute value and caches it in the instance.
+  From the Python Cookbook (Denis Otkidach)
+  This decorator allows you to create a CachedAttribute which can be computed once and
+  accessed many times. Sort of like memoization.
+  
+  author: Denis Otkidach
+  source: http://code.activestate.com/recipes/276643-caching-and-aliasing-with-descriptors/
+  '''
+  def __init__(self, method, name=None):
+    self.method = method
+    self.name = name or method.__name__
+    self.__doc__ = method.__doc__
+  def __get__(self, inst, cls):
+    if inst is None:
+      return self
+    result = self.method(inst)
+    setattr(inst, self.name, result)
+    return result
 
 class NGramModel(object):
   def __init__(self, n):
@@ -120,7 +120,7 @@ class NGramModel(object):
       d[w] = self.prob(w)
     return d
 
-if __name__ == "__main__":
+def english_test():
   gram_size = 10
   m = NGramModel(gram_size)
   m.train("english/train")
@@ -163,3 +163,73 @@ if __name__ == "__main__":
         count_total += 1
 
   print("Percent correct: " + str(count_correct / float(count_total)))
+
+def chinese_test():
+  # Read charmap into dict
+  dict_map = {}
+  with open("chinese/charmap") as char_map:
+    lines = char_map.readlines()
+    for line in lines:
+      symbol, pinyin = line.split()
+      if pinyin not in dict_map:
+        dict_map[pinyin] = [symbol]
+      dict_map[pinyin].append(symbol)
+
+  #print("\nyi could go to " + str(len(dict_map["yi"])) + " symbols")
+
+  chinese_model = NGramModel(3)
+  chinese_model.train("chinese/train.han")
+  chinese_model.start()
+
+  # Dev set testing
+  correct = 0
+  total = 0
+  with open("chinese/dev.pin") as pinFile:
+    pinyin_words = pinFile.read().split()
+  with open("chinese/dev.han") as hanFile:
+    han_symbols = hanFile.read().replace('\n', '')
+
+  print("\nMost probable symbols with percents for first 10 symbols of dev")
+  for i in range(10):
+    actual_next_symbol = han_symbols[i]
+    if pinyin_words[i] in dict_map:
+      possible_next_symbols = dict_map[pinyin_words[i]]
+    else:
+      possible_next_symbols = [pinyin_words[i]] if pinyin_words[i] != "<space>" else [" "]
+    probs = {poss: chinese_model.prob(poss) for poss in possible_next_symbols}
+    _, guess = max((p, w) for (w, p) in probs.items())
+    if len(pinyin_words[i]) == 1:
+      guess = pinyin_words[i]
+    print("Symbol: " + guess + " has probability: " + str(chinese_model.prob(guess)))
+
+  # Test set testing
+  chinese_model.start()
+  correct = 0
+  total = 0
+  with open("chinese/test.pin") as pinFile:
+    pinyin_words = pinFile.read().split()
+  with open("chinese/test.han") as hanFile:
+    han_symbols = hanFile.read().replace('\n', '')
+
+  for i in range(len(pinyin_words)):
+    actual_next_symbol = han_symbols[i]
+    if pinyin_words[i] in dict_map:
+      possible_next_symbols = dict_map[pinyin_words[i]]
+    else:
+      possible_next_symbols = [pinyin_words[i]] if pinyin_words[i] != "<space>" else [" "]
+    probs = {poss: chinese_model.prob(poss) for poss in possible_next_symbols}
+    _, guess = max((p, w) for (w, p) in probs.items())
+
+    if len(pinyin_words[i]) == 1:
+      guess = pinyin_words[i]
+
+    if guess == actual_next_symbol:
+      correct += 1
+    total += 1
+    chinese_model.read(actual_next_symbol)
+
+  print(float(correct) / total)
+
+if __name__ == "__main__":
+  english_test()
+  chinese_test()
