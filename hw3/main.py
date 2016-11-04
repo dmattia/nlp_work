@@ -17,7 +17,7 @@ class MarkovModel:
     # Find the most common pos to use for unk 
     kinds = list(map(lambda x: x.kind, tokens))
     counter = Counter(kinds)
-    count, guess = max((count, word) for (word, count) in counter.items())
+    count, guess = max((count, tag) for (tag, count) in counter.items())
     self.mostCommonGuess = guess
 
   def test(self, filename):
@@ -49,10 +49,33 @@ class Token:
     self.kind = wordPair.split("/")[1]
 
 if __name__ == "__main__":
+  print("1.1) I decided that any unknown word would be predicted to have the most common tag for all words in the training set")
+
   model = MarkovModel()
-  print("Training")
   model.train("train.txt")
 
-  print("Testing")
+  # Find P(t | you) for all t
+  print("\n1.2)")
+  word_counts = model.tokens["you"]
+  total_occurrences = sum(word_counts.values())
+  for (tag, count) in word_counts.items():
+    print("P(" + tag + " | you) = " + str(float(count) / total_occurrences))
+
+  print("\n1.3) Finding accuracy on test.txt")
   result = model.test("test.txt")
   print("Percent Correct: " + str(result))
+
+  print("\n1.4) Second line of test.txt")
+  with open("test.txt") as testFile:
+    second_line = testFile.readlines()[1]
+  tokens = second_line.split()
+  words = [token.split("/")[0] for token in tokens]
+  guesses = [(word, model.guessKind(word)) for word in words]
+  for guess in guesses:
+    print(guess[0] + "/" + guess[1], end=" ")
+
+  print("\nWithout N words: ")
+  non_n_guesses = filter(lambda x: x[1] != "N", guesses)
+  for guess in non_n_guesses:
+    print(guess[0] + "/" + guess[1], end=" ")
+  print("")
