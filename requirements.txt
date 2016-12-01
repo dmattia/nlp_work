@@ -1,5 +1,9 @@
-autograd==1.1.6
-future==0.15.2
+cycler==0.10.0
+matplotlib==1.5.3
+nltk==3.2.1
 numpy==1.11.1
-requests==2.7.0
-scipy==0.18.0
+prettytable==0.7.2
+pyparsing==2.1.9
+python-dateutil==2.5.3
+pytz==2016.6.1
+six==1.10.0
