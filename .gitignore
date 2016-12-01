@@ -8,3 +8,7 @@ lib
 *.sw[op]
 
 *.pyc
+
+*.pdf
+*.tgz
+sarcasm_detect/
