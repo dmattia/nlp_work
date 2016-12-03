@@ -44,7 +44,9 @@ class CFG(object):
     # Create Chart
     words = string.strip().split(" ")
     n = len(words)
-    chart = [[set() for i in range(n+1)] for i in range(n+1)]
+
+    chart = [[dict() for i in range(n+1)] for i in range(n+1)]
+    best = [[defaultdict(float) for i in range(n+1)] for i in range(n+1)]
 
     # Do top row
     for i in range(1, n+1):
@@ -53,24 +55,29 @@ class CFG(object):
         word = "<unk>"
       for rule in self.rules:
         if word in rule.goes_to:
-          #print(word + " found in " + str(rule))
-          chart[i-1][i].add(rule)
+          p = self.conditional_probability(rule)
+          if p > best[i-1][i][rule.base]:
+            #chart[i-1][i].add(rule)
+            chart[i-1][i][rule.base] = rule
+            best[i-1][i][rule.base] = p
 
     # Fill in other rows
     for l in range(2, n + 1):
       for i in range(0, n-l+1):
         j = i + l
         for k in range(i+1, j):
-          #print("Checking Y in " + str(chart[i-1][k-1]) + " and Z in " + str(chart[k-1][j-1]))
           binary_rules = filter(lambda x: len(x.goes_to) == 2, self.rules)
           for rule in binary_rules:
             Y = rule.goes_to[0]
             Z = rule.goes_to[1]
-            #print(str(rule) + " :::::::::: " + Y + " " + Z)
-            y_set = map(lambda rule: rule.base, chart[i][k])
-            z_set = map(lambda rule: rule.base, chart[k][j])
+            y_set = [base for base in chart[i][k]]
+            z_set = [base for base in chart[k][j]]
             if Y in y_set and Z in z_set:
-              chart[i][j].add(rule)
+              p_prime = self.conditional_probability(rule) * best[i][k][Y] * best[k][j][Z]
+              if p_prime > best[i][j][rule.base]:
+                #chart[i][j].add(rule)
+                chart[i][j][rule.base] = rule
+                best[i][j][rule.base] = p_prime
 
     """
     # print chart
@@ -81,9 +88,13 @@ class CFG(object):
           print("\t" + str(rule))
     """
 
-    bases = [rule.base for rule in chart[0][n]]
-    print(len(filter(lambda base: base == "TOP", bases)))
-    return 'TOP' in bases
+    print("\n" + string.strip())
+    if 'TOP' in chart[0][n]:
+      print(chart[0][n]['TOP'])
+      return best[0][n]['TOP']
+    else:
+      print("No parse found")
+      return None
 
   def conditional_probability(self, rule):
     rulelist = self._rules[rule.base]
@@ -152,6 +163,6 @@ if __name__ == "__main__":
     lines = devFile.readlines()
     #lines = devFile.readlines()[37:38]
     for line in lines:
-      parse = cfg.cky(line)
-      if not parse:
-        print(line.strip())
+      prob = cfg.cky(line)
+      if prob is not None:
+        print("probability: " + str(prob))
