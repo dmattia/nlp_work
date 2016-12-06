@@ -1,0 +1,46 @@
+### PART 1 ###
+
+Length: 752
+
+Top 5 most occurring rules with counts: 
+PUNC -> . # 346
+TO -> to # 241
+PP -> IN NP_NNP # 239
+IN -> from # 218
+PP -> IN NP # 197
+
+Top 5 most occurring rules with percents: 
+NP_NP_EX -> there # 1.0
+FRAG_NP_NN -> <unk> # 1.0
+X_JJ -> nonstop # 1.0
+ADVP_RBS -> latest # 1.0
+WRB -> How # 1.0
+
+### PART 2 ###
+
+FIRST FIVE LINES WITH LOG PROBABILITIES
+(TOP (S (NP (DT The) (NN flight)) (VP (MD should) (VP (VB be) (NP (NP* (CD eleven) (RB a.m)) (NN tomorrow))))) (PUNC .))
+probability: -40.86005862039388
+
+(TOP (S (S* (S (NP_PRP I) (VP (MD would) (VP (VP* (VP* (VB like) (NP_PRP it)) (X_TO to)) (VP (VBP have) (NP (NP (DT a) (NN stop)) (PP (IN in) (NP (NNP New) (NNP York)))))))) (CC and)) (S (NP_PRP I) (VP (MD would) (VP (VB like) (NP (NP (DT a) (NN flight)) (SBAR (WHNP_WDT that) (S_VP (VBZ serves) (ADVP_RB <unk>)))))))) (PUNC .))
+probability: -84.96026208986648
+
+(TOP (SBARQ (WHNP (WHNP_WDT Which) (PP (IN of) (NP_DT these))) (SQ_VP (VBP serve) (NP_NN dinner))) (PUNC ?))
+probability: -20.205461711126294
+
+(TOP (SBARQ (WHNP (WDT Which) (NNS ones)) (SQ_VP (VBP stop) (PP (IN in) (NP_NNP Nashville)))) (PUNC ?))
+probability: -23.54035303502083
+
+(TOP (SQ (VBP <unk>) (SQ* (NP_NP_EX there) (SQ* (NP (DT any) (NNS flights)) (VP (VBG arriving) (PP (IN after) (NP (CD eleven) (RB a.m))))))) (PUNC ?))
+probability: -37.278934919588785
+
+python evalb.py dev.parses.post dev.trees                          
+dev.parses.post 435 brackets
+dev.trees       474 brackets
+matching        400 brackets
+precision       0.919540229885
+recall  0.84388185654
+F1      0.880088008801
+
+
+### PART 3 ###

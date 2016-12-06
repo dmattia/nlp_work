@@ -1,7 +1,8 @@
-from tree import Tree
+from tree import Tree, Node
 from collections import defaultdict
 
 import itertools
+import math
 
 class CFG(object):
   def __init__(self):
@@ -57,9 +58,8 @@ class CFG(object):
         if word in rule.goes_to:
           p = self.conditional_probability(rule)
           if p > best[i-1][i][rule.base]:
-            #chart[i-1][i].add(rule)
-            chart[i-1][i][rule.base] = rule
             best[i-1][i][rule.base] = p
+            chart[i-1][i][rule.base] = [rule, i, None, None]
 
     # Fill in other rows
     for l in range(2, n + 1):
@@ -70,14 +70,15 @@ class CFG(object):
           for rule in binary_rules:
             Y = rule.goes_to[0]
             Z = rule.goes_to[1]
+
             y_set = [base for base in chart[i][k]]
             z_set = [base for base in chart[k][j]]
+
             if Y in y_set and Z in z_set:
               p_prime = self.conditional_probability(rule) * best[i][k][Y] * best[k][j][Z]
               if p_prime > best[i][j][rule.base]:
-                #chart[i][j].add(rule)
-                chart[i][j][rule.base] = rule
                 best[i][j][rule.base] = p_prime
+                chart[i][j][rule.base] = [rule, i, j, k]
 
     """
     # print chart
@@ -88,12 +89,28 @@ class CFG(object):
           print("\t" + str(rule))
     """
 
-    print("\n" + string.strip())
+    def make_tree(chart, rule, i, j, k):
+      if j is not None:
+        left_rule, left_i, left_j, left_k = chart[i][k][rule.goes_to[0]]
+        left_tree = make_tree(chart, left_rule, left_i, left_j, left_k)
+    
+        right_rule, right_i, right_j, right_k = chart[k][j][rule.goes_to[1]]
+        right_tree = make_tree(chart, right_rule, right_i, right_j, right_k)
+
+        return "(" + rule.base + " " + left_tree + " " + right_tree + ")"
+      else:
+        return "(" + rule.base + " " + rule.goes_to[0] + ")"
+
+    #print("\n" + string.strip())
     if 'TOP' in chart[0][n]:
-      print(chart[0][n]['TOP'])
+      # Parse Exists, backtrack to find full parse
+      top_rule, i, j, k = chart[0][n]['TOP']
+      tree = make_tree(chart, top_rule, i, j, k)
+      print(tree)
+
       return best[0][n]['TOP']
     else:
-      print("No parse found")
+      print("")
       return None
 
   def conditional_probability(self, rule):
@@ -156,13 +173,26 @@ if __name__ == "__main__":
   for rule in rules[:5]:
     print(str(rule).split("#")[0] + "# " + str(cfg.conditional_probability(rule)))
 
-  print("\nCKY Parse")
-  #cfg.cky("Which ones stop in Nashville ?")
-  #cfg.cky("Which is last ?")
+  # Run your parser on dev.strings and save the output to dev.parses.
+  # Show the output of your parser on the first five lines of dev.strings,
+  # along with their log-probabilities (base 10).
+  print("\nCKY Parses")
+  with open("dev.strings") as devFile:
+    lines = devFile.readlines()[0:5]
+    for line in lines:
+      prob = cfg.cky(line)
+      if prob is not None:
+        print("probability: " + str(math.log(prob)))
+  
+
+  """
+  print("\nCKY Parses")
   with open("dev.strings") as devFile:
     lines = devFile.readlines()
     #lines = devFile.readlines()[37:38]
     for line in lines:
       prob = cfg.cky(line)
       if prob is not None:
-        print("probability: " + str(prob))
+        #print("probability: " + str(prob))
+        pass
+  """
