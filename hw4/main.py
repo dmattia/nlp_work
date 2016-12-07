@@ -41,19 +41,20 @@ class CFG(object):
               if node.parent is not None:
                 node.label += "[parent=" + node.parent.label + "]"
             ###################################################
-            
+
             rule = Rule(node.label, [child.label for child in node.children])
             self.add_rule(rule)
           else:
             # Node is a word
             self.words_seen.add(node.label)
 
-    # Add smoothing by adding X-><unk> for every base
+    #################################################
+    # Add smoothing: by adding X-><unk> for every base
     for base in self.bases:
-      """ Check if unary rule that does not go to unk already
-      """
       unk_rule = Rule(base, ["<unk>"])
-      self.add_rule(unk_rule)
+      for i in range(30):
+        self.add_rule(unk_rule)
+    #################################################
       
   def cky(self, string):
     """ Finds the highest probability parse of a given string
@@ -105,29 +106,23 @@ class CFG(object):
           print("\t" + str(rule))
     """
 
-    def make_tree(chart, rule, i, j, k, use_vertical_markov=True):
+    def make_tree(chart, rule, i, j, k):
       if j is not None:
         left_rule, left_i, left_j, left_k = chart[i][k][rule.goes_to[0]]
-        left_tree = make_tree(chart, left_rule, left_i, left_j, left_k, use_vertical_markov)
+        left_tree = make_tree(chart, left_rule, left_i, left_j, left_k)
     
         right_rule, right_i, right_j, right_k = chart[k][j][rule.goes_to[1]]
-        right_tree = make_tree(chart, right_rule, right_i, right_j, right_k, use_vertical_markov)
+        right_tree = make_tree(chart, right_rule, right_i, right_j, right_k)
 
         ###################################################
         # Remove Vertical Markovization
-        if use_vertical_markov:
-          return "(" + rule.base.split("[parent")[0] + " " + left_tree + " " + right_tree + ")"
-        else:
-          return "(" + rule.base + " " + left_tree + " " + right_tree + ")"
+        return "(" + rule.base.split("[parent")[0] + " " + left_tree + " " + right_tree + ")"
         ###################################################
 
       else:
         ###################################################
         # Remove Vertical Markovization
-        if use_vertical_markov:
-          return "(" + rule.base.split("[parent")[0] + " " + rule.goes_to[0] + ")"
-        else:
-          return "(" + rule.base + " " + rule.goes_to[0] + ")"
+        return "(" + rule.base.split("[parent")[0] + " " + rule.goes_to[0] + ")"
         ###################################################
 
     #print("\n" + string.strip())
