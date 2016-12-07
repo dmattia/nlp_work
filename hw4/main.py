@@ -39,6 +39,11 @@ class CFG(object):
             # Node is a word
             self.words_seen.add(node.label)
 
+    # Add smoothing by adding X-><unk> for every base
+    for base in self.bases:
+      unk_rule = Rule(base, ["<unk>"])
+      self.add_rule(unk_rule)
+
   def cky(self, string):
     """ Finds the highest probability parse of a given string
     """
@@ -152,7 +157,7 @@ class Rule(object):
   def __eq__(self, other):
     return self.base == other.base and self.goes_to == other.goes_to
 
-if __name__ == "__main__":
+def main():
   cfg = CFG()
 
   cfg.train("train.trees.pre.unk")
@@ -183,10 +188,14 @@ if __name__ == "__main__":
       prob = cfg.cky(line)
       if prob is not None:
         print("probability: " + str(math.log(prob)))
-  
 
-  """
-  print("\nCKY Parses")
+if __name__ == "__main__":
+  #main()
+  cfg = CFG()
+
+  cfg.train("train.trees.pre.unk")
+
+  #print("\nCKY Parses of all lines in devFile")
   with open("dev.strings") as devFile:
     lines = devFile.readlines()
     #lines = devFile.readlines()[37:38]
@@ -195,4 +204,3 @@ if __name__ == "__main__":
       if prob is not None:
         #print("probability: " + str(prob))
         pass
-  """
