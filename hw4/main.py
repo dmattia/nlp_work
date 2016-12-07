@@ -3,6 +3,7 @@ from collections import defaultdict
 
 import itertools
 import math
+import sys
 
 class CFG(object):
   def __init__(self):
@@ -26,13 +27,21 @@ class CFG(object):
   def bases(self):
     return set([rule.base for rule in self.rules])
 
-  def train(self, filename):
+  def train(self, filename, use_vertical_markov=True):
     with open(filename) as treeFile:
       lines = treeFile.readlines()
       for line in lines:
         tree = Tree.from_str(line)
         for node in tree.bottomup():
           if len(node.children) > 0:
+
+            ###################################################
+            # Add Vertical Markovization
+            if use_vertical_markov:
+              if node.parent is not None:
+                node.label += "[parent=" + node.parent.label + "]"
+            ###################################################
+            
             rule = Rule(node.label, [child.label for child in node.children])
             self.add_rule(rule)
           else:
@@ -41,9 +50,11 @@ class CFG(object):
 
     # Add smoothing by adding X-><unk> for every base
     for base in self.bases:
+      """ Check if unary rule that does not go to unk already
+      """
       unk_rule = Rule(base, ["<unk>"])
       self.add_rule(unk_rule)
-
+      
   def cky(self, string):
     """ Finds the highest probability parse of a given string
     """
@@ -94,28 +105,38 @@ class CFG(object):
           print("\t" + str(rule))
     """
 
-    def make_tree(chart, rule, i, j, k):
+    def make_tree(chart, rule, i, j, k, use_vertical_markov=True):
       if j is not None:
         left_rule, left_i, left_j, left_k = chart[i][k][rule.goes_to[0]]
-        left_tree = make_tree(chart, left_rule, left_i, left_j, left_k)
+        left_tree = make_tree(chart, left_rule, left_i, left_j, left_k, use_vertical_markov)
     
         right_rule, right_i, right_j, right_k = chart[k][j][rule.goes_to[1]]
-        right_tree = make_tree(chart, right_rule, right_i, right_j, right_k)
+        right_tree = make_tree(chart, right_rule, right_i, right_j, right_k, use_vertical_markov)
 
-        return "(" + rule.base + " " + left_tree + " " + right_tree + ")"
+        ###################################################
+        # Remove Vertical Markovization
+        if use_vertical_markov:
+          return "(" + rule.base.split("[parent")[0] + " " + left_tree + " " + right_tree + ")"
+        else:
+          return "(" + rule.base + " " + left_tree + " " + right_tree + ")"
+        ###################################################
+
       else:
-        return "(" + rule.base + " " + rule.goes_to[0] + ")"
+        ###################################################
+        # Remove Vertical Markovization
+        if use_vertical_markov:
+          return "(" + rule.base.split("[parent")[0] + " " + rule.goes_to[0] + ")"
+        else:
+          return "(" + rule.base + " " + rule.goes_to[0] + ")"
+        ###################################################
 
     #print("\n" + string.strip())
     if 'TOP' in chart[0][n]:
       # Parse Exists, backtrack to find full parse
       top_rule, i, j, k = chart[0][n]['TOP']
       tree = make_tree(chart, top_rule, i, j, k)
-      print(tree)
-
-      return best[0][n]['TOP']
+      return tree
     else:
-      print("")
       return None
 
   def conditional_probability(self, rule):
@@ -192,15 +213,22 @@ def main():
 if __name__ == "__main__":
   #main()
   cfg = CFG()
+  no_markovization = CFG()
 
   cfg.train("train.trees.pre.unk")
+  no_markovization.train("train.trees.pre.unk", False)
 
   #print("\nCKY Parses of all lines in devFile")
-  with open("dev.strings") as devFile:
+  with open(sys.argv[1]) as devFile:
     lines = devFile.readlines()
     #lines = devFile.readlines()[37:38]
     for line in lines:
-      prob = cfg.cky(line)
-      if prob is not None:
-        #print("probability: " + str(prob))
-        pass
+      tree_string = cfg.cky(line)
+      if tree_string is not None:
+        print(tree_string)
+      else:
+        tree_string_without_markovization = no_markovization.cky(line)
+        if tree_string_without_markovization is not None:
+          print(tree_string_without_markovization)
+        else:
+          print("")
