@@ -48,6 +48,7 @@ class CFG(object):
             # Node is a word
             self.words_seen.add(node.label)
 
+
     #################################################
     # Add smoothing: by adding X-><unk> for every base
     for base in self.bases:
@@ -137,7 +138,12 @@ class CFG(object):
   def conditional_probability(self, rule):
     rulelist = self._rules[rule.base]
     total = sum(rule.times_seen  for rule in rulelist)
-    return float(rule.times_seen) / total
+    
+    ###################################################
+    # Add Delta Smoothing
+    delta = 0.01
+    return (float(rule.times_seen) + delta) / (total + len(list(self.rules)) * delta)
+    ###################################################
 
   def __len__(self):  
     """ Returns the number of unique rules

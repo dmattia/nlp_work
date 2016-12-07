@@ -44,3 +44,35 @@ F1      0.880088008801
 
 
 ### PART 3 ###
+
+Note: These changes are noted in the code by being surrounded by large amounts of ##### characters.
+
+Modification 1: Add Delta smoothing: I added very light add delta smoothing.
+new dev f1: 0.905450500556
+
+Modification 2: Vertical Markovization: For each rule, I added the parent’s label to that rules base. If this could not find a parse, I resorted back to the best rule that did not take vertical markovization into account if one existed.
+new dev f1: 0.90848952591
+
+Modification 3: I wanted to increase the probability that <unk> would occur in the best tree (as test would theoretically have more unk words). For each base, I added 30 occurrences of that rule going to “<unk>” during my training.
+new dev f1: 0.878048780488
+
+Using all three modifications:
+
+dev.parses.post 425 brackets
+dev.trees       474 brackets
+matching        407 brackets
+precision       0.957647058824
+recall  0.85864978903
+F1      0.905450500556
+
+test.parses.post        425 brackets
+test.trees      471 brackets
+matching        406 brackets
+precision       0.955294117647
+recall  0.861995753715
+F1      0.90625
+
+
+What helped and what didn’t?:
+All three of these modifications helped. The Vertical Markovization helped the most.  The increased unk probability helped a lot as well when paired with vertical markovization, but actually hurt the f1 score by itself. The add delta smoothing helped a bit, but in a very small way when combined with the other two. By itself, add delta smoothing helped a lot.
+
